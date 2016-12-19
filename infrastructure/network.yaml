@@ -1,0 +1,332 @@
+Mappings:
+
+  CidrBlocks:
+    eu-west-1:
+      vpc: 10.100.10.0/24
+      puba: 10.100.10.0/28
+      pubb: 10.100.10.16/28
+      pubc: 10.100.10.32/28
+
+Resources:
+
+  Vpc:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !FindInMap [CidrBlocks, !Ref "AWS::Region", vpc]
+      Tags:
+        - Key: Name
+          Value: cassandra-vpc
+
+  InternetGateway:
+    Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: cassandra-igw
+
+  VpcInternetGatewayAttachment:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref Vpc
+      InternetGatewayId: !Ref InternetGateway
+
+  VpcRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: cassandra-default-rtb
+
+  VpcAcl:
+    Type: AWS::EC2::NetworkAcl
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: cassandra-acl
+
+  VpcAclEntryAllowAllIn:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref VpcAcl
+      CidrBlock: 0.0.0.0/0
+      Protocol: -1
+      RuleAction: allow
+      RuleNumber: 100
+
+  VpcAclEntryAllowAllOut:
+    Type: AWS::EC2::NetworkAclEntry
+    Properties:
+      NetworkAclId: !Ref VpcAcl
+      CidrBlock: 0.0.0.0/0
+      Protocol: -1
+      RuleAction: allow
+      RuleNumber: 100
+      Egress: true
+
+  PublicRouteTable:
+    Type: AWS::EC2::RouteTable
+    Properties:
+      VpcId: !Ref Vpc
+      Tags:
+        - Key: Name
+          Value: cassandra-public-rtb
+
+  PublicRouteTableInternetRoute:
+    Type: AWS::EC2::Route
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref InternetGateway
+
+  SubnetPublicA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: !FindInMap [CidrBlocks, !Ref "AWS::Region", puba]
+      AvailabilityZone: eu-west-1a
+      Tags:
+        - Key: Name
+          Value: cassandra-subnet-public-a
+
+  SubnetPublicARouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref SubnetPublicA
+
+  SubnetPublicB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: !FindInMap [CidrBlocks, !Ref "AWS::Region", pubb]
+      AvailabilityZone: eu-west-1b
+      Tags:
+        - Key: Name
+          Value: cassandra-subnet-public-b
+
+  SubnetPublicBRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref SubnetPublicB
+
+  SubnetPublicC:
+    Type: AWS::EC2::Subnet
+    Properties:
+      VpcId: !Ref Vpc
+      CidrBlock: !FindInMap [CidrBlocks, !Ref "AWS::Region", pubc]
+      AvailabilityZone: eu-west-1c
+      Tags:
+        - Key: Name
+          Value: cassandra-subnet-public-c
+
+  SubnetPublicCRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref SubnetPublicC
+
+  CassandraSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref Vpc
+      GroupDescription: Cassandra
+      SecurityGroupIngress:
+        - CidrIp: 86.11.21.77/32
+          IpProtocol: tcp
+          FromPort: 9160
+          ToPort: 9160
+        - CidrIp: 86.11.21.77/32
+          IpProtocol: tcp
+          FromPort: 9042
+          ToPort: 9042
+      SecurityGroupEgress:
+        - CidrIp: 0.0.0.0/0
+          IpProtocol: tcp
+          FromPort: 1
+          ToPort: 65535
+      Tags:
+        - Key: Name
+          Value: cassandra-sg
+
+  CassandraSecurityGroupInternodeIngress:
+    Type: AWS::EC2::SecurityGroupIngress
+    Properties:
+      GroupId: !Ref CassandraSecurityGroup
+      SourceSecurityGroupId: !Ref CassandraSecurityGroup
+      IpProtocol: tcp
+      FromPort: 7000
+      ToPort: 7001
+
+  CassandraSecurityGroupInternodeEgress:
+    Type: AWS::EC2::SecurityGroupEgress
+    Properties:
+      GroupId: !Ref CassandraSecurityGroup
+      DestinationSecurityGroupId: !Ref CassandraSecurityGroup
+      IpProtocol: tcp
+      FromPort: 7000
+      ToPort: 7001
+
+  PublicIPA:
+    Type: AWS::EC2::EIP
+
+  PublicIPB:
+    Type: AWS::EC2::EIP
+
+  PublicIPC:
+    Type: AWS::EC2::EIP
+
+  PublicIPD:
+    Type: AWS::EC2::EIP
+
+  PublicIPE:
+    Type: AWS::EC2::EIP
+
+  VolumeA1:
+    Type: AWS::EC2::Volume
+    Properties:
+      AvailabilityZone: eu-west-1a
+      Size: 100
+      VolumeType: gp2
+      Tags:
+        - Key: Name
+          Value: cassandra-vol-a1
+
+  VolumeA2:
+    Type: AWS::EC2::Volume
+    Properties:
+      AvailabilityZone: eu-west-1a
+      Size: 100
+      VolumeType: gp2
+      Tags:
+        - Key: Name
+          Value: cassandra-vol-a2
+
+  VolumeB1:
+    Type: AWS::EC2::Volume
+    Properties:
+      AvailabilityZone: eu-west-1b
+      Size: 100
+      VolumeType: gp2
+      Tags:
+        - Key: Name
+          Value: cassandra-vol-b1
+
+  VolumeB2:
+    Type: AWS::EC2::Volume
+    Properties:
+      AvailabilityZone: eu-west-1b
+      Size: 100
+      VolumeType: gp2
+      Tags:
+        - Key: Name
+          Value: cassandra-vol-b2
+
+  VolumeC1:
+    Type: AWS::EC2::Volume
+    Properties:
+      AvailabilityZone: eu-west-1c
+      Size: 100
+      VolumeType: gp2
+      Tags:
+        - Key: Name
+          Value: cassandra-vol-c1
+
+Outputs:
+
+  SubnetPublicA:
+    Value: !Ref SubnetPublicA
+    Export:
+      Name: !Sub ${AWS::StackName}:SubnetPublicA
+
+  SubnetPublicB:
+    Value: !Ref SubnetPublicB
+    Export:
+      Name: !Sub ${AWS::StackName}:SubnetPublicB
+
+  SubnetPublicC:
+    Value: !Ref SubnetPublicC
+    Export:
+      Name: !Sub ${AWS::StackName}:SubnetPublicC
+
+  PublicIPA:
+    Value: !Ref PublicIPA
+    Export:
+      Name: !Sub ${AWS::StackName}:PublicIPA
+
+  PublicIPAllocationA:
+    Value: !GetAtt PublicIPA.AllocationId
+    Export:
+      Name: !Sub ${AWS::StackName}:PublicIPAllocationA
+
+  PublicIPB:
+    Value: !Ref PublicIPB
+    Export:
+      Name: !Sub ${AWS::StackName}:PublicIPB
+
+  PublicIPAllocationB:
+    Value: !GetAtt PublicIPB.AllocationId
+    Export:
+      Name: !Sub ${AWS::StackName}:PublicIPAllocationB
+
+  PublicIPC:
+    Value: !Ref PublicIPC
+    Export:
+      Name: !Sub ${AWS::StackName}:PublicIPC
+
+  PublicIPAllocationC:
+    Value: !GetAtt PublicIPC.AllocationId
+    Export:
+      Name: !Sub ${AWS::StackName}:PublicIPAllocationC
+
+  PublicIPD:
+    Value: !Ref PublicIPD
+    Export:
+      Name: !Sub ${AWS::StackName}:PublicIPD
+
+  PublicIPAllocationD:
+    Value: !GetAtt PublicIPD.AllocationId
+    Export:
+      Name: !Sub ${AWS::StackName}:PublicIPAllocationD
+
+  PublicIPE:
+    Value: !Ref PublicIPE
+    Export:
+      Name: !Sub ${AWS::StackName}:PublicIPE
+
+  PublicIPAllocationE:
+    Value: !GetAtt PublicIPE.AllocationId
+    Export:
+      Name: !Sub ${AWS::StackName}:PublicIPAllocationE
+
+  VolumeA1:
+    Value: !Ref VolumeA1
+    Export:
+      Name: !Sub ${AWS::StackName}:VolumeA1
+
+  VolumeA2:
+    Value: !Ref VolumeA2
+    Export:
+      Name: !Sub ${AWS::StackName}:VolumeA2
+
+  VolumeB1:
+    Value: !Ref VolumeB1
+    Export:
+      Name: !Sub ${AWS::StackName}:VolumeB1
+
+  VolumeB2:
+    Value: !Ref VolumeB2
+    Export:
+      Name: !Sub ${AWS::StackName}:VolumeB2
+
+  VolumeC1:
+    Value: !Ref VolumeC1
+    Export:
+      Name: !Sub ${AWS::StackName}:VolumeC1
+
+  CassandraSecurityGroup:
+    Value: !Ref CassandraSecurityGroup
+    Export:
+      Name: !Sub ${AWS::StackName}:CassandraSecurityGroup
