@@ -7,6 +7,22 @@ Mappings:
       pubb: 10.100.10.16/28
       pubc: 10.100.10.32/28
 
+  CidrAllocations:
+    eu-west-1:
+      a1: 10.100.10.4
+      a2: 10.100.10.5
+      b1: 10.100.10.20
+      b2: 10.100.10.21
+      c1: 10.100.10.36
+
+Parameters:
+
+  AllowedIPAddress:
+    Type: String
+    Description: |
+      The IP address from which to allow connections through to
+      the Cassandra cluster.
+
 Resources:
 
   Vpc:
@@ -134,14 +150,18 @@ Resources:
       VpcId: !Ref Vpc
       GroupDescription: Cassandra
       SecurityGroupIngress:
-        - CidrIp: 86.11.21.77/32
+        - CidrIp: !Sub ${AllowedIPAddress}/32
           IpProtocol: tcp
           FromPort: 9160
           ToPort: 9160
-        - CidrIp: 86.11.21.77/32
+        - CidrIp: !Sub ${AllowedIPAddress}/32
           IpProtocol: tcp
           FromPort: 9042
           ToPort: 9042
+        - CidrIp: !Sub ${AllowedIPAddress}/32
+          IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
       SecurityGroupEgress:
         - CidrIp: 0.0.0.0/0
           IpProtocol: tcp
@@ -241,15 +261,52 @@ Outputs:
     Export:
       Name: !Sub ${AWS::StackName}:SubnetPublicA
 
+  PrivateIPA1:
+    Value: !FindInMap [CidrAllocations, !Ref "AWS::Region", a1]
+    Export:
+      Name: !Sub ${AWS::StackName}:PrivateIPA1
+
+  PrivateIPA2:
+    Value: !FindInMap [CidrAllocations, !Ref "AWS::Region", a2]
+    Export:
+      Name: !Sub ${AWS::StackName}:PrivateIPA2
+
   SubnetPublicB:
     Value: !Ref SubnetPublicB
     Export:
       Name: !Sub ${AWS::StackName}:SubnetPublicB
 
+  PrivateIPB1:
+    Value: !FindInMap [CidrAllocations, !Ref "AWS::Region", b1]
+    Export:
+      Name: !Sub ${AWS::StackName}:PrivateIPB1
+
+  PrivateIPB2:
+    Value: !FindInMap [CidrAllocations, !Ref "AWS::Region", b2]
+    Export:
+      Name: !Sub ${AWS::StackName}:PrivateIPB2
+
   SubnetPublicC:
     Value: !Ref SubnetPublicC
     Export:
       Name: !Sub ${AWS::StackName}:SubnetPublicC
+
+  PrivateIPC1:
+    Value: !FindInMap [CidrAllocations, !Ref "AWS::Region", c1]
+    Export:
+      Name: !Sub ${AWS::StackName}:PrivateIPC1
+
+  SeedIPs:
+    Value: !Join
+      - ','
+      -
+        - !FindInMap [CidrAllocations, !Ref "AWS::Region", a1]
+        - !FindInMap [CidrAllocations, !Ref "AWS::Region", a2]
+        - !FindInMap [CidrAllocations, !Ref "AWS::Region", b1]
+        - !FindInMap [CidrAllocations, !Ref "AWS::Region", b2]
+        - !FindInMap [CidrAllocations, !Ref "AWS::Region", c1]
+    Export:
+      Name: !Sub ${AWS::StackName}:SeedIPs
 
   PublicIPA:
     Value: !Ref PublicIPA

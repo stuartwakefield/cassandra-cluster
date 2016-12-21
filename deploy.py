@@ -2,6 +2,7 @@ import logging
 import boto3
 import hashlib
 import uuid
+import os
 from botocore.exceptions import ClientError
 
 NETWORK_STACK = 'cassandra-network'
@@ -13,6 +14,9 @@ ROLLBACK_FAILED = 'ROLLBACK_FAILED'
 UPDATE_ROLLBACK_FAILED = 'UPDATE_ROLLBACK_FAILED'
 
 FAILED_STATUSES = {CREATE_FAILED, DELETE_FAILED, ROLLBACK_FAILED, UPDATE_ROLLBACK_FAILED}
+
+k = 'ParameterKey'
+v = 'ParameterValue'
 
 logger = logging.getLogger(__name__)
 
@@ -175,15 +179,18 @@ class SetupTeardownStack(Stack):
 
 class NetworkStack(UpdateInPlaceStack):
 
-    def __init__(self):
-        super().__init__(NETWORK_STACK, template('infrastructure/network.yaml'))
+    def __init__(self, allow_ip):
+        super().__init__(NETWORK_STACK, template('infrastructure/network.yaml'),
+        Parameters=[
+            { k: 'AllowedIPAddress', v: allow_ip }
+        ])
 
 PRIVATE_IPS = {
-    'a1': '10.100.10.4',
-    'a2': '10.100.10.5',
-    'b1': '10.100.10.20',
-    'b2': '10.100.10.21',
-    'c1': '10.100.10.36'
+    'a1': 'PrivateIPA1',
+    'a2': 'PrivateIPA2',
+    'b1': 'PrivateIPB1',
+    'b2': 'PrivateIPB2',
+    'c1': 'PrivateIPC1'
 }
 PUBLIC_IP_ALLOCATION = {
     'a': 'PublicIPAllocationA',
@@ -200,9 +207,6 @@ VOLUMES = {
     'c1': 'VolumeC1'
 }
 
-k = 'ParameterKey'
-v = 'ParameterValue'
-
 class DeploymentInstance(UpdateReplacementStack):
 
     def __init__(self, instance_name, subnet_name, instance_suffix, public_ip_allocation):
@@ -215,8 +219,7 @@ class DeploymentInstance(UpdateReplacementStack):
                 { k: 'Name', v: instance_name },
                 { k: 'IPAllocationName', v: PUBLIC_IP_ALLOCATION[public_ip_allocation] },
                 { k: 'VolumeName', v: VOLUMES[instance_suffix] },
-                { k: 'PrivateIp', v: PRIVATE_IPS[instance_suffix] },
-                { k: 'SeedIps', v: ','.join(PRIVATE_IPS.values())}
+                { k: 'PrivateIPName', v: PRIVATE_IPS[instance_suffix] }
             ]
         )
 
@@ -249,7 +252,12 @@ def main():
 
     client = boto3.client('cloudformation')
 
-    network_stack = NetworkStack()
+    if 'ALLOW_IP' not in os.environ:
+        raise Exception("Missing ALLOW_IP environment variable")
+
+    allow_ip = os.environ['ALLOW_IP']
+
+    network_stack = NetworkStack(allow_ip)
     deployment = Deployment()
 
     network_stack.apply(client)
