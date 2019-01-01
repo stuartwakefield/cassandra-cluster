@@ -33,9 +33,9 @@ Resources:
   Instance:
     Type: AWS::EC2::Instance
     Properties:
-      EbsOptimized: true
+      #EbsOptimized: true
       ImageId: ami-cd9fd4be
-      InstanceType: i2.xlarge
+      InstanceType: t2.micro
       KeyName: cassandra
       PrivateIpAddress:
         Fn::ImportValue: !Sub ${NetworkStack}:${PrivateIPName}

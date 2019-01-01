@@ -62,20 +62,20 @@ Resources:
         - Key: Name
           Value: cassandra-acl
 
-  VpcAclEntryAllowAllIn:
+  VpcAclEntryAllowedIn:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId: !Ref VpcAcl
-      CidrBlock: 0.0.0.0/0
+      CidrBlock: !Sub ${AllowedIPAddress}/32
       Protocol: -1
       RuleAction: allow
       RuleNumber: 100
 
-  VpcAclEntryAllowAllOut:
+  VpcAclEntryAllowedOut:
     Type: AWS::EC2::NetworkAclEntry
     Properties:
       NetworkAclId: !Ref VpcAcl
-      CidrBlock: 0.0.0.0/0
+      CidrBlock: !Sub ${AllowedIPAddress}/32
       Protocol: -1
       RuleAction: allow
       RuleNumber: 100
